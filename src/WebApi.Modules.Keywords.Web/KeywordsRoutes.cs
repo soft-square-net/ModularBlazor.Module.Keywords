@@ -1,5 +1,5 @@
 using Carter;
-using Notes = soft.square.net.WebApi.Modules.Keywords.Web.Notes;
+using Concepts = soft.square.net.WebApi.Modules.Keywords.Web.Concepts;
 
 namespace soft.square.net.WebApi.Modules.Keywords.Web;
 
@@ -13,13 +13,16 @@ public sealed class KeywordsRoutes : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         // Problem details for domain rules and lost races, on the module's own group (module code, unloads with it).
-        var notes = app.MapGroup("/notes").WithTags("Notes").AddEndpointFilter<KeywordsProblemsFilter>();
+        var concepts = app.MapGroup("/concepts").WithTags("Concepts").AddEndpointFilter<KeywordsProblemsFilter>();
 
-        Notes.List.Map(notes);
-        Notes.Search.Map(notes);
-        Notes.GetById.Map(notes);
-        Notes.Create.Map(notes);
-        Notes.Edit.Map(notes);
-        Notes.Delete.Map(notes);
+        Concepts.List.Map(concepts);
+        Concepts.Lookup.Map(concepts);
+        Concepts.Types.Map(concepts);
+        Concepts.Get.Map(concepts);
+        Concepts.JsonLd.Map(concepts);
+        Concepts.Create.Map(concepts);
+        Concepts.Edit.Map(concepts);
+        Concepts.Retire.Map(concepts);
+        Concepts.Restore.Map(concepts);
     }
 }

@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using soft.square.net.WebApi.Contracts.Tenancy;
 using soft.square.net.WebApi.Data;
-using soft.square.net.WebApi.Modules.Keywords.Core.NoteAggregate;
+using soft.square.net.WebApi.Modules.Keywords.Core.ConceptAggregate;
 
 namespace soft.square.net.WebApi.Modules.Keywords.Infrastructure.Data;
 
@@ -16,7 +16,7 @@ public sealed class KeywordsDbContext(DbContextOptions<KeywordsDbContext> option
 {
     protected override string Schema => "keywords";
 
-    public DbSet<Note> Notes => Set<Note>();
+    public DbSet<Concept> Concepts => Set<Concept>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

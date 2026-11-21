@@ -2,8 +2,8 @@
   <Sdk Name="soft.square.net.ModularBlazor.Module.Sdk" />
 
   <!--
-    The Blazor client module of Keywords, loaded by ModularBlazor.BlzWebClient: the Notes page (list, search, add,
-    edit, delete) over the module's API.
+    The Blazor client module of Keywords, loaded by ModularBlazor.BlzWebClient: the Keywords pages (concepts: list, search, add,
+    edit, retire) and the pick-concepts dialog over the module's API.
 
     Shipped as soft.square.net.Module.Keywords.dll alone (the client part of the module). The API client is its own
     hidden client module (WebApi.Modules.Keywords.Client, listed in Dependencies): referenced here to compile, never

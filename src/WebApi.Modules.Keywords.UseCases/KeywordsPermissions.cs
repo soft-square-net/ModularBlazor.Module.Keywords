@@ -7,11 +7,11 @@ namespace soft.square.net.WebApi.Modules.Keywords.UseCases;
 public static class KeywordsPermissions
 {
     public const string Read = "keywords.read";
-    public const string Write = "keywords.write";
+    public const string Manage = "keywords.manage";
 
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
-        new(Read, "Read and search notes."),
-        new(Write, "Create, edit and delete notes.")
+        new(Read, "Search and read concepts, and their JSON-LD."),
+        new(Manage, "Add, change, retire and restore concepts.")
     ];
 }
