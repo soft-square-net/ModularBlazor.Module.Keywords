@@ -6,30 +6,28 @@
   retired ones. A row opens the concept (/keywords/concept?id=); "New concept" opens an empty one.
 *@
 
-<PageTitle>Keywords</PageTitle>
+<PageTitle>@L["Keywords"]</PageTitle>
 
 <div class="mud-container mn-page">
   <header class="mn-header">
     <div>
-      <h1 class="mud-typography mud-typography-h4">Keywords</h1>
+      <h1 class="mud-typography mud-typography-h4">@L["Keywords"]</h1>
       <p class="mud-typography mud-typography-body1 mn-muted">
-        The people, organizations, places, events and topics your content is about. One concept, one id, with its name in
-        every language, its other names and its links (Wikidata, Wikipedia), so search engines and AI know exactly which
-        one you mean. Reading needs keywords.read; changing, keywords.manage.
+        @L["The people, organizations, places, events and topics your content is about. One concept, one id, with its name in every language, its other names and its links (Wikidata, Wikipedia), so search engines and AI know exactly which one you mean. Reading needs keywords.read; changing, keywords.manage."]
       </p>
     </div>
     <form class="mn-actions" @onsubmit="SearchAsync" @onsubmit:preventDefault>
       <div class="mud-input-control mn-inline">
-        <label class="mud-input-label" for="kw-search">Search</label>
+        <label class="mud-input-label" for="kw-search">@L["Search"]</label>
         <div class="mud-input-wrapper mud-input-wrapper--dense">
-          <input id="kw-search" type="search" class="mud-input-slot" @bind="_search" placeholder="any name, any language" />
+          <input id="kw-search" type="search" class="mud-input-slot" @bind="_search" placeholder="@L["any name, any language"]" />
         </div>
       </div>
       <div class="mud-input-control mn-inline kw-type-filter">
-        <label class="mud-input-label" for="kw-type">Type</label>
+        <label class="mud-input-label" for="kw-type">@L["Type"]</label>
         <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
           <select id="kw-type" class="mud-input-slot" @bind="_type" @bind:after="SearchAsync">
-            <option value="">All types</option>
+            <option value="">@L["All types"]</option>
             @foreach (var t in _types)
             {
               <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option>
@@ -38,10 +36,10 @@
         </div>
       </div>
       <label class="mn-check">
-        <input type="checkbox" @bind="_retired" @bind:after="SearchAsync" /> Retired too
+        <input type="checkbox" @bind="_retired" @bind:after="SearchAsync" /> @L["Retired too"]
       </label>
-      <button type="submit" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" disabled="@Busy">Search</button>
-      <a href="keywords/concept" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium">New concept</a>
+      <button type="submit" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" disabled="@Busy">@L["Search"]</button>
+      <a href="keywords/concept" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium">@L["New concept"]</a>
     </form>
   </header>
 
@@ -51,11 +49,11 @@
   }
 
   <section class="mud-paper mud-elevation-1 mn-card">
-    <MudTailDataTable @ref="_table" RowKey="id" Columns="Columns" OnRowClick="Open" EmptyText="No concepts yet. Add the first one." />
+    <MudTailDataTable @ref="_table" RowKey="id" Columns="Columns" OnRowClick="Open" EmptyText="@L["No concepts yet. Add the first one."]" />
     <div class="mn-pager">
       <span class="mud-typography mud-typography-body2 mn-muted">@PagerText</span>
-      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page - 1)" disabled="@(Busy || _page <= 1)">Previous</button>
-      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page + 1)" disabled="@(Busy || _page >= LastPage)">Next</button>
+      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page - 1)" disabled="@(Busy || _page <= 1)">@L["Previous"]</button>
+      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page + 1)" disabled="@(Busy || _page >= LastPage)">@L["Next"]</button>
     </div>
   </section>
 </div>
@@ -63,13 +61,13 @@
 @code {
   private const int PageSize = 20;
 
-  private static readonly IReadOnlyList<object> Columns =
+  private IReadOnlyList<object> Columns =>
   [
-    new { key = "name", title = "Name" },
-    new { key = "type", title = "Type", width = "160px" },
-    new { key = "other", title = "Other names" },
-    new { key = "languages", title = "Languages", width = "120px" },
-    new { key = "status", title = "Status", width = "100px" },
+    new { key = "name", title = L["Name"].Value },
+    new { key = "type", title = L["Type"].Value, width = "160px" },
+    new { key = "other", title = L["Other names"].Value },
+    new { key = "languages", title = L["Languages"].Value, width = "120px" },
+    new { key = "status", title = L["Status"].Value, width = "100px" },
   ];
 
   private MudTailDataTable? _table;
@@ -82,7 +80,7 @@
 
   private int LastPage => Math.Max(1, (_total + PageSize - 1) / PageSize);
 
-  private string PagerText => _total == 0 ? "" : $"Page {_page} of {LastPage} ({_total} concepts)";
+  private string PagerText => _total == 0 ? "" : L["Page {0} of {1} ({2} concepts)", _page, LastPage, _total];
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
@@ -109,7 +107,7 @@
     type = KeywordsUi.TypeLabel(c.Type, _types),
     other = string.Join(", ", c.AlternateNames),
     languages = string.Join(" ", c.Languages),
-    status = c.Status == ConceptStatus.Retired ? "retired" : "",
+    status = c.Status == ConceptStatus.Retired ? L["retired"].Value : "",
   };
 
   private async Task GoToAsync(int page)

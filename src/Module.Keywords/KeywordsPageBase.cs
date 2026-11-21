@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
+using Microsoft.Extensions.Localization;
 using soft.square.net.ModularBlazor.Abstractions;
 using soft.square.net.ModularBlazor.Abstractions.MudTail;
 using soft.square.net.WebApi.Modules.Keywords.Client;
@@ -15,6 +16,12 @@ public abstract class KeywordsPageBase : ComponentBase
     [Inject] protected IHttpClientFactory HttpClients { get; set; } = default!;
     [Inject] protected MudTailRuntime MudTail { get; set; } = default!;
     [Inject] protected NavigationManager Nav { get; set; } = default!;
+    [Inject] protected IStringLocalizerFactory Texts { get; set; } = default!;
+
+    private IStringLocalizer? _l;
+
+    /// <summary>This module's texts (its embedded i18n/{culture}.json); the keys are the English texts.</summary>
+    protected IStringLocalizer L => _l ??= Texts.Create(GetType());
 
     /// <summary>The module's routes (/api/keywords/...) reach the pool that runs the module through the gateway.</summary>
     protected KeywordsClient Api => new(HttpClients.CreateClient(HttpClientNames.WebApi));
@@ -54,17 +61,17 @@ public abstract class KeywordsPageBase : ComponentBase
         return true;
     }
 
-    protected static string Describe(Exception ex) => ex switch
+    protected string Describe(Exception ex) => ex switch
     {
         KeywordsApiException { StatusCode: 400 } api when Mentions(api, "tenant") =>
-            "400: no tenant. Concepts belong to a tenant: sign in to one (your organisation) to use them.",
-        KeywordsApiException { StatusCode: 401 } => "401: the gateway did not accept the access token. Sign in again.",
+            L["400: no tenant. Concepts belong to a tenant: sign in to one (your organisation) to use them."],
+        KeywordsApiException { StatusCode: 401 } => L["401: the gateway did not accept the access token. Sign in again."],
         KeywordsApiException { StatusCode: 403 } api =>
-            $"403: {ProblemDetail(api) ?? "your account lacks the permission for this (keywords.* in this tenant)."}",
-        KeywordsApiException { StatusCode: 404 } api => $"404: {ProblemDetail(api) ?? "not found."}",
-        KeywordsApiException { StatusCode: 409 } api => $"409: {ProblemDetail(api) ?? "someone changed it meanwhile. Reload and try again."}",
+            $"403: {ProblemDetail(api) ?? L["your account lacks the permission for this (keywords.* in this tenant)."]}",
+        KeywordsApiException { StatusCode: 404 } api => $"404: {ProblemDetail(api) ?? L["not found."]}",
+        KeywordsApiException { StatusCode: 409 } api => $"409: {ProblemDetail(api) ?? L["someone changed it meanwhile. Reload and try again."]}",
         KeywordsApiException api => $"{api.StatusCode}: {ProblemDetail(api) ?? FirstLine(api.Response) ?? FirstLine(api.Message)}",
-        HttpRequestException http => $"The gateway is not reachable ({http.Message}).",
+        HttpRequestException http => L["The gateway is not reachable ({0}).", http.Message],
         _ => ex.Message,
     };
 

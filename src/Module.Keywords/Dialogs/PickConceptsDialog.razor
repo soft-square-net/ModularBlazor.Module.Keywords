@@ -13,13 +13,13 @@
   <form class="kw-picker-search" @onsubmit="SearchAsync" @onsubmit:preventDefault>
     <div class="mud-input-wrapper mud-input-wrapper--dense kw-picker-query">
       <input type="search" class="mud-input-slot" @bind="_query" @bind:event="oninput" @bind:after="SearchAsync"
-             placeholder="Search any name, any language" aria-label="Search concepts" autofocus />
+             placeholder="@L["Search any name, any language"]" aria-label="@L["Search concepts"]" autofocus />
     </div>
     @if (_fixedType is null)
     {
       <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
-        <select class="mud-input-slot" @bind="_type" @bind:after="SearchAsync" aria-label="Type">
-          <option value="">All types</option>
+        <select class="mud-input-slot" @bind="_type" @bind:after="SearchAsync" aria-label="@L["Type"]">
+          <option value="">@L["All types"]</option>
           @foreach (var t in _types) { <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option> }
         </select>
       </div>
@@ -28,11 +28,11 @@
 
   @if (_multiple && _selected.Count > 0)
   {
-    <div class="kw-chips kw-picker-selected" aria-label="Chosen">
+    <div class="kw-chips kw-picker-selected" aria-label="@L["Chosen"]">
       @foreach (var s in _selected)
       {
         var c = s;
-        <span class="mn-chip kw-chip">@c.Name <button type="button" class="kw-chip-remove" @onclick="() => Toggle(c)" aria-label="@($"Remove {c.Name}")">✕</button></span>
+        <span class="mn-chip kw-chip">@c.Name <button type="button" class="kw-chip-remove" @onclick="() => Toggle(c)" aria-label="@L["Remove {0}", c.Name]">✕</button></span>
       }
     </div>
   }
@@ -60,34 +60,34 @@
   </ul>
   @if (_results.Count == 0 && !Busy)
   {
-    <p class="mud-typography mud-typography-body2 mn-muted">@(_query.Trim().Length == 0 ? "No concepts yet." : $"Nothing matches \"{_query.Trim()}\".")</p>
+    <p class="mud-typography mud-typography-body2 mn-muted">@(_query.Trim().Length == 0 ? L["No concepts yet."] : L["Nothing matches \"{0}\".", _query.Trim()])</p>
   }
-  @if (_more > 0) { <p class="mud-typography mud-typography-body2 mn-muted">@_more more: type more of the name to narrow it down.</p> }
+  @if (_more > 0) { <p class="mud-typography mud-typography-body2 mn-muted">@L["{0} more: type more of the name to narrow it down.", _more]</p> }
 
   @if (_query.Trim().Length > 0 && !_results.Any(r => string.Equals(r.Name, _query.Trim(), StringComparison.OrdinalIgnoreCase)))
   {
     <details class="kw-picker-new" open="@(_results.Count == 0)">
-      <summary>Add "@_query.Trim()" as a new concept</summary>
+      <summary>@L["Add \"{0}\" as a new concept", _query.Trim()]</summary>
       <div class="kw-picker-new-row">
         <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
-          <select class="mud-input-slot" @bind="_newType" aria-label="Type of the new concept">
+          <select class="mud-input-slot" @bind="_newType" aria-label="@L["Type of the new concept"]">
             @foreach (var t in _types.Where(t => _fixedType is null || t.Name == _fixedType)) { <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option> }
           </select>
         </div>
         <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-language">
-          <input class="mud-input-slot" @bind="_newLanguage" maxlength="16" aria-label="Language of the name" />
+          <input class="mud-input-slot" @bind="_newLanguage" maxlength="16" aria-label="@L["Language of the name"]" />
         </div>
-        <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-small" @onclick="CreateAsync" disabled="@Busy">Add</button>
+        <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-small" @onclick="CreateAsync" disabled="@Busy">@L["Add"]</button>
       </div>
-      <p class="mud-typography mud-typography-caption mn-muted">Names in other languages and links can be added on the Keywords page later.</p>
+      <p class="mud-typography mud-typography-caption mn-muted">@L["Names in other languages and links can be added on the Keywords page later."]</p>
     </details>
   }
 </div>
 <div class="mud-dialog-actions">
-  <button type="button" class="mud-button-root mud-button-text mud-button-medium" @onclick="Dialog.Cancel">Cancel</button>
+  <button type="button" class="mud-button-root mud-button-text mud-button-medium" @onclick="Dialog.Cancel">@L["Cancel"]</button>
   @if (_multiple)
   {
-    <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium" @onclick="Done">Choose (@_selected.Count)</button>
+    <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium" @onclick="Done">@L["Choose ({0})", _selected.Count]</button>
   }
 </div>
 

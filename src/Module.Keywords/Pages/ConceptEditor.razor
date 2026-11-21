@@ -11,22 +11,22 @@
   that has it keeps it.
 *@
 
-<PageTitle>@(IsNew ? "New concept" : _concept?.Name ?? "Concept")</PageTitle>
+<PageTitle>@(IsNew ? L["New concept"] : _concept?.Name ?? L["Concept"])</PageTitle>
 
 <div class="mud-container mn-page">
   <header class="mn-header">
     <div>
-      <a href="keywords" class="mud-typography mud-typography-body2 kw-back">← Keywords</a>
-      <h1 class="mud-typography mud-typography-h4">@(IsNew ? "New concept" : _concept?.Name ?? $"Concept {Id}")</h1>
+      <a href="keywords" class="mud-typography mud-typography-body2 kw-back">@L["← Keywords"]</a>
+      <h1 class="mud-typography mud-typography-h4">@(IsNew ? L["New concept"] : _concept?.Name ?? L["Concept {0}", Id])</h1>
       <p class="mud-typography mud-typography-body2 mn-muted">
         @if (_concept is { } c)
         {
-          <span>id <code>@c.Id</code> · <code>@c.Slug</code> · version @c.Version · changed @When(c.UpdatedAt)</span>
-          @if (c.Status == ConceptStatus.Retired) { <span class="mn-chip kw-warn">retired</span> }
+          <span>@L["id"] <code>@c.Id</code> · <code>@c.Slug</code> · @L["version {0}", c.Version] · @L["changed {0}", When(c.UpdatedAt)]</span>
+          @if (c.Status == ConceptStatus.Retired) { <span class="mn-chip kw-warn">@L["retired"]</span> }
         }
         else
         {
-          <span>Give it a type and a name; add its names in other languages, its other names and its links. Nothing is saved until you click Create.</span>
+          <span>@L["Give it a type and a name; add its names in other languages, its other names and its links. Nothing is saved until you click Create."]</span>
         }
       </p>
     </div>
@@ -37,11 +37,11 @@
         @if (current.Status == ConceptStatus.Active)
         {
           <button type="button" class="mud-button-root mud-button-outlined mud-button-error mud-button-medium" @onclick="() => SetStatusAsync(true)" disabled="@Busy"
-                  title="Out of pickers and search; content that has it keeps it">Retire</button>
+                  title="@L["Out of pickers and search; content that has it keeps it"]">@L["Retire"]</button>
         }
         else
         {
-          <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" @onclick="() => SetStatusAsync(false)" disabled="@Busy">Restore</button>
+          <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" @onclick="() => SetStatusAsync(false)" disabled="@Busy">@L["Restore"]</button>
         }
       }
     </div>
@@ -54,16 +54,16 @@
 
   @if (!_loaded)
   {
-    @if (Error is null) { <p class="mud-typography mud-typography-body2 mn-muted">Loading…</p> }
+    @if (Error is null) { <p class="mud-typography mud-typography-body2 mn-muted">@L["Loading…"]</p> }
   }
   else
   {
     <div class="kw-editor" @oninput="Changed" @onchange="Changed">
       <div class="kw-editor-main">
         <section class="mud-paper mud-elevation-1 mn-card">
-          <h2 class="mud-typography mud-typography-h6">What it is</h2>
+          <h2 class="mud-typography mud-typography-h6">@L["What it is"]</h2>
           <div class="mud-input-control">
-            <label class="mud-input-label" for="kw-type-edit">schema.org type *</label>
+            <label class="mud-input-label" for="kw-type-edit">@L["schema.org type *"]</label>
             <div class="mud-input-wrapper mud-input-wrapper--select">
               <select id="kw-type-edit" class="mud-input-slot" @bind="_type">
                 @foreach (var t in _types)
@@ -78,23 +78,21 @@
             }
           </div>
           <div class="mud-input-control">
-            <label class="mud-input-label" for="kw-description">Description</label>
+            <label class="mud-input-label" for="kw-description">@L["Description"]</label>
             <div class="mud-input-wrapper"><textarea id="kw-description" class="mud-input-slot" rows="2" maxlength="1000" @bind="_description" @bind:event="oninput"></textarea></div>
-            <div class="mud-input-helper-text">One sentence that tells it apart from things with the same name: "Argentine footballer", "Country in the Middle East".</div>
+            <div class="mud-input-helper-text">@L["One sentence that tells it apart from things with the same name: \"Argentine footballer\", \"Country in the Middle East\"."]</div>
           </div>
           <div class="mud-input-control">
-            <label class="mud-input-label" for="kw-slug">Slug</label>
+            <label class="mud-input-label" for="kw-slug">@L["Slug"]</label>
             <div class="mud-input-wrapper"><input id="kw-slug" class="mud-input-slot" @bind="_slug" @bind:event="oninput" maxlength="120" placeholder="@(IsNew ? "made from the name" : "")" /></div>
-            <div class="mud-input-helper-text">Lower-case words joined by hyphens, for URLs (Arabic letters are fine). Content links to the id, so changing it breaks nothing stored.</div>
+            <div class="mud-input-helper-text">@L["Lower-case words joined by hyphens, for URLs (Arabic letters are fine). Content links to the id, so changing it breaks nothing stored."]</div>
           </div>
         </section>
 
         <section class="mud-paper mud-elevation-1 mn-card">
-          <h2 class="mud-typography mud-typography-h6">Names</h2>
+          <h2 class="mud-typography mud-typography-h6">@L["Names"]</h2>
           <p class="mud-typography mud-typography-body2 mn-muted">
-            One preferred name per language. Alternate names are synonyms, abbreviations, spellings and transliterations
-            (search finds them, JSON-LD lists them as alternateName); hidden ones are found by search only (misspellings).
-            Search ignores case, accents and Arabic diacritics and letter forms.
+            @L["One preferred name per language. Alternate names are synonyms, abbreviations, spellings and transliterations (search finds them, JSON-LD lists them as alternateName); hidden ones are found by search only (misspellings). Search ignores case, accents and Arabic diacritics and letter forms."]
           </p>
           <datalist id="kw-languages">
             @foreach (var (tag, name) in KeywordsUi.CommonLanguages) { <option value="@tag">@name</option> }
@@ -104,83 +102,82 @@
             var l = label;
             <div class="kw-label">
               <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-language">
-                <input class="mud-input-slot" list="kw-languages" @bind="l.Language" @bind:event="oninput" maxlength="16" aria-label="Language" placeholder="en" />
+                <input class="mud-input-slot" list="kw-languages" @bind="l.Language" @bind:event="oninput" maxlength="16" aria-label="@L["Language"]" placeholder="en" />
               </div>
               <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-text">
-                <input class="mud-input-slot" @bind="l.Text" @bind:event="oninput" maxlength="200" aria-label="Name" dir="@(KeywordsUi.IsRtl(l.Language) ? "rtl" : "auto")" />
+                <input class="mud-input-slot" @bind="l.Text" @bind:event="oninput" maxlength="200" aria-label="@L["Name"]" dir="@(KeywordsUi.IsRtl(l.Language) ? "rtl" : "auto")" />
               </div>
               <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select kw-label-kind">
-                <select class="mud-input-slot" @bind="l.Kind" aria-label="Kind">
-                  <option value="@LabelKind.Preferred">preferred</option>
-                  <option value="@LabelKind.Alternate">alternate</option>
-                  <option value="@LabelKind.Hidden">hidden</option>
+                <select class="mud-input-slot" @bind="l.Kind" aria-label="@L["Kind"]">
+                  <option value="@LabelKind.Preferred">@L["preferred"]</option>
+                  <option value="@LabelKind.Alternate">@L["alternate"]</option>
+                  <option value="@LabelKind.Hidden">@L["hidden"]</option>
                 </select>
               </div>
               <button type="button" class="mud-button-root mud-button-text mud-button-error mud-button-small" @onclick="() => _labels.Remove(l)"
-                      disabled="@(_labels.Count == 1)" aria-label="Remove this name">✕</button>
+                      disabled="@(_labels.Count == 1)" aria-label="@L["Remove this name"]">✕</button>
             </div>
           }
           <div class="mn-row-actions">
-            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Preferred)">Add a language</button>
-            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Alternate)">Add another name</button>
+            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Preferred)">@L["Add a language"]</button>
+            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Alternate)">@L["Add another name"]</button>
           </div>
         </section>
 
         <section class="mud-paper mud-elevation-1 mn-card">
-          <h2 class="mud-typography mud-typography-h6">Links</h2>
+          <h2 class="mud-typography mud-typography-h6">@L["Links"]</h2>
           <div class="mud-input-control">
-            <label class="mud-input-label" for="kw-sameas">Same as (one address per line)</label>
+            <label class="mud-input-label" for="kw-sameas">@L["Same as (one address per line)"]</label>
             <div class="mud-input-wrapper"><textarea id="kw-sameas" class="mud-input-slot" rows="3" spellcheck="false" @bind="_sameAs" @bind:event="oninput"
                       placeholder="https://www.wikidata.org/wiki/Q615&#10;https://en.wikipedia.org/wiki/Lionel_Messi"></textarea></div>
             <div class="mud-input-helper-text">
-              The same thing elsewhere: its Wikidata item first, then Wikipedia, its official site, its profiles. This is
-              how search engines and AI assistants know which one you mean.
+              @L["The same thing elsewhere: its Wikidata item first, then Wikipedia, its official site, its profiles. This is how search engines and AI assistants know which one you mean."]
               @if (FirstName() is { } search)
               {
-                <a href="@($"https://www.wikidata.org/w/index.php?search={Uri.EscapeDataString(search)}")" target="_blank" rel="noopener">Find it on Wikidata</a>
+                <a href="@($"https://www.wikidata.org/w/index.php?search={Uri.EscapeDataString(search)}")" target="_blank" rel="noopener">@L["Find it on Wikidata"]</a>
               }
             </div>
           </div>
           <div class="mud-input-control">
-            <span class="mud-input-label">Related concepts</span>
+            <span class="mud-input-label">@L["Related concepts"]</span>
             <div class="kw-chips">
               @foreach (var related in _related)
               {
                 var r = related;
-                <span class="mn-chip kw-chip">@r.Name <button type="button" class="kw-chip-remove" @onclick="() => _related.Remove(r)" aria-label="@($"Remove {r.Name}")">✕</button></span>
+                <span class="mn-chip kw-chip">@r.Name <button type="button" class="kw-chip-remove" @onclick="() => _related.Remove(r)" aria-label="@L["Remove {0}", r.Name]">✕</button></span>
               }
               @if (ModuleDialogs.IsAvailable(KeywordsDialogs.PickConcepts))
               {
-                <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="PickRelatedAsync">Choose…</button>
+                <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="PickRelatedAsync">@L["Choose…"]</button>
               }
             </div>
-            <div class="mud-input-helper-text">Different things that go together: an event and its city, a company and its founder.</div>
+            <div class="mud-input-helper-text">@L["Different things that go together: an event and its city, a company and its founder."]</div>
           </div>
         </section>
       </div>
 
       <aside class="kw-editor-side">
         <section class="mud-paper mud-elevation-1 mn-card">
-          <h2 class="mud-typography mud-typography-h6">JSON-LD</h2>
+          <h2 class="mud-typography mud-typography-h6">@L["JSON-LD"]</h2>
           @if (_concept is null)
           {
-            <p class="mud-typography mud-typography-body2 mn-muted">Create the concept to see the schema.org data pages embed for it.</p>
+            <p class="mud-typography mud-typography-body2 mn-muted">@L["Create the concept to see the schema.org data pages embed for it."]</p>
           }
           else
           {
             <div class="mn-actions">
               <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
-                <select class="mud-input-slot" @bind="_jsonLanguage" @bind:after="LoadJsonLdAsync" aria-label="Language of the JSON-LD">
+                <select class="mud-input-slot" @bind="_jsonLanguage" @bind:after="LoadJsonLdAsync" aria-label="@L["Language of the JSON-LD"]">
                   @foreach (var language in _concept.Labels.Where(l => l.Kind == LabelKind.Preferred).Select(l => l.Language).Distinct())
                   {
                     <option value="@language">@language</option>
                   }
                 </select>
               </div>
-              @if (Dirty) { <span class="mn-chip kw-warn">save to update</span> }
+              @if (Dirty) { <span class="mn-chip kw-warn">@L["save to update"]</span> }
             </div>
             <pre class="mn-result kw-jsonld" dir="ltr">@_jsonLd</pre>
-            <p class="mud-typography mud-typography-body2 mn-muted">What a page puts in its <code>about</code> or <code>mentions</code> when it is tagged with this concept.</p>
+            <p class="mud-typography mud-typography-body2 mn-muted">@((MarkupString)L["What a page puts in its <code>about</code> or <code>mentions</code> when it is tagged with this concept."].Value)</p>
           }
         </section>
       </aside>
@@ -290,7 +287,7 @@
       if (_concept is null)
       {
         var created = await Api.CreateConceptAsync(values);
-        await MudTail.ToastAsync($"Created \"{created.Name}\".", "success");
+        await MudTail.ToastAsync(L["Created \"{0}\".", created.Name], "success");
         Show(created);
         _loadedId = created.Id;
         Nav.NavigateTo($"keywords/concept?id={created.Id}", replace: true);
@@ -298,7 +295,7 @@
       else
       {
         Show(await Api.EditConceptAsync(_concept.Id, new ConceptEdit { Version = _concept.Version, Values = values }));
-        await MudTail.ToastAsync("Saved.", "success");
+        await MudTail.ToastAsync(L["Saved."], "success");
       }
     }, then: LoadJsonLdAsync);
   }
