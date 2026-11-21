@@ -15,7 +15,7 @@ public sealed class KeywordsModule : IRuntimeModule
 {
     public ModuleManifest Manifest { get; } = new("keywords", "Keywords", "0.1.0", "keywords")
     {
-        Description = "Keywords: notes per tenant (the template's example; replace with the module's own features).",
+        Description = "Keywords: the concepts content is about (people, organizations, places, topics), with names per language, aliases and sameAs links, as schema.org JSON-LD.",
         DefaultSettings = new Dictionary<string, string?> { ["Keywords:MaxPageSize"] = "100" },
         Permissions = KeywordsPermissions.All
     };

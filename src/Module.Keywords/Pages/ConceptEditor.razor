@@ -1,0 +1,335 @@
+@page "/keywords/concept"
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@inherits KeywordsPageBase
+@inject IModuleDialogs ModuleDialogs
+
+@*
+  One concept (?id=N), or a new one (no id): its type, its names per language (one preferred, any alternate or hidden
+  ones), its description, its sameAs links and the concepts it is related to (picked with Module.Keywords/pick-concepts).
+  Beside it, the JSON-LD the saved concept becomes, in any of its languages. Retire takes it out of pickers; content
+  that has it keeps it.
+*@
+
+<PageTitle>@(IsNew ? "New concept" : _concept?.Name ?? "Concept")</PageTitle>
+
+<div class="mud-container mn-page">
+  <header class="mn-header">
+    <div>
+      <a href="keywords" class="mud-typography mud-typography-body2 kw-back">← Keywords</a>
+      <h1 class="mud-typography mud-typography-h4">@(IsNew ? "New concept" : _concept?.Name ?? $"Concept {Id}")</h1>
+      <p class="mud-typography mud-typography-body2 mn-muted">
+        @if (_concept is { } c)
+        {
+          <span>id <code>@c.Id</code> · <code>@c.Slug</code> · version @c.Version · changed @When(c.UpdatedAt)</span>
+          @if (c.Status == ConceptStatus.Retired) { <span class="mn-chip kw-warn">retired</span> }
+        }
+        else
+        {
+          <span>Give it a type and a name; add its names in other languages, its other names and its links. Nothing is saved until you click Create.</span>
+        }
+      </p>
+    </div>
+    <div class="mn-actions">
+      <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium" @onclick="SaveAsync" disabled="@Busy">@(IsNew ? "Create" : "Save")</button>
+      @if (_concept is { } current)
+      {
+        @if (current.Status == ConceptStatus.Active)
+        {
+          <button type="button" class="mud-button-root mud-button-outlined mud-button-error mud-button-medium" @onclick="() => SetStatusAsync(true)" disabled="@Busy"
+                  title="Out of pickers and search; content that has it keeps it">Retire</button>
+        }
+        else
+        {
+          <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" @onclick="() => SetStatusAsync(false)" disabled="@Busy">Restore</button>
+        }
+      }
+    </div>
+  </header>
+
+  @if (Error is not null)
+  {
+    <p class="mud-typography mud-typography-body2 mn-error" role="alert">@Error</p>
+  }
+
+  @if (!_loaded)
+  {
+    @if (Error is null) { <p class="mud-typography mud-typography-body2 mn-muted">Loading…</p> }
+  }
+  else
+  {
+    <div class="kw-editor" @oninput="Changed" @onchange="Changed">
+      <div class="kw-editor-main">
+        <section class="mud-paper mud-elevation-1 mn-card">
+          <h2 class="mud-typography mud-typography-h6">What it is</h2>
+          <div class="mud-input-control">
+            <label class="mud-input-label" for="kw-type-edit">schema.org type *</label>
+            <div class="mud-input-wrapper mud-input-wrapper--select">
+              <select id="kw-type-edit" class="mud-input-slot" @bind="_type">
+                @foreach (var t in _types)
+                {
+                  <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label (@t.Name)</option>
+                }
+              </select>
+            </div>
+            @if (_types.FirstOrDefault(t => t.Name == _type) is { } type)
+            {
+              <div class="mud-input-helper-text">@type.Description <a href="@($"https://schema.org/{type.Name}")" target="_blank" rel="noopener">schema.org/@type.Name</a></div>
+            }
+          </div>
+          <div class="mud-input-control">
+            <label class="mud-input-label" for="kw-description">Description</label>
+            <div class="mud-input-wrapper"><textarea id="kw-description" class="mud-input-slot" rows="2" maxlength="1000" @bind="_description" @bind:event="oninput"></textarea></div>
+            <div class="mud-input-helper-text">One sentence that tells it apart from things with the same name: "Argentine footballer", "Country in the Middle East".</div>
+          </div>
+          <div class="mud-input-control">
+            <label class="mud-input-label" for="kw-slug">Slug</label>
+            <div class="mud-input-wrapper"><input id="kw-slug" class="mud-input-slot" @bind="_slug" @bind:event="oninput" maxlength="120" placeholder="@(IsNew ? "made from the name" : "")" /></div>
+            <div class="mud-input-helper-text">Lower-case words joined by hyphens, for URLs (Arabic letters are fine). Content links to the id, so changing it breaks nothing stored.</div>
+          </div>
+        </section>
+
+        <section class="mud-paper mud-elevation-1 mn-card">
+          <h2 class="mud-typography mud-typography-h6">Names</h2>
+          <p class="mud-typography mud-typography-body2 mn-muted">
+            One preferred name per language. Alternate names are synonyms, abbreviations, spellings and transliterations
+            (search finds them, JSON-LD lists them as alternateName); hidden ones are found by search only (misspellings).
+            Search ignores case, accents and Arabic diacritics and letter forms.
+          </p>
+          <datalist id="kw-languages">
+            @foreach (var (tag, name) in KeywordsUi.CommonLanguages) { <option value="@tag">@name</option> }
+          </datalist>
+          @foreach (var label in _labels)
+          {
+            var l = label;
+            <div class="kw-label">
+              <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-language">
+                <input class="mud-input-slot" list="kw-languages" @bind="l.Language" @bind:event="oninput" maxlength="16" aria-label="Language" placeholder="en" />
+              </div>
+              <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-text">
+                <input class="mud-input-slot" @bind="l.Text" @bind:event="oninput" maxlength="200" aria-label="Name" dir="@(KeywordsUi.IsRtl(l.Language) ? "rtl" : "auto")" />
+              </div>
+              <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select kw-label-kind">
+                <select class="mud-input-slot" @bind="l.Kind" aria-label="Kind">
+                  <option value="@LabelKind.Preferred">preferred</option>
+                  <option value="@LabelKind.Alternate">alternate</option>
+                  <option value="@LabelKind.Hidden">hidden</option>
+                </select>
+              </div>
+              <button type="button" class="mud-button-root mud-button-text mud-button-error mud-button-small" @onclick="() => _labels.Remove(l)"
+                      disabled="@(_labels.Count == 1)" aria-label="Remove this name">✕</button>
+            </div>
+          }
+          <div class="mn-row-actions">
+            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Preferred)">Add a language</button>
+            <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => AddLabel(LabelKind.Alternate)">Add another name</button>
+          </div>
+        </section>
+
+        <section class="mud-paper mud-elevation-1 mn-card">
+          <h2 class="mud-typography mud-typography-h6">Links</h2>
+          <div class="mud-input-control">
+            <label class="mud-input-label" for="kw-sameas">Same as (one address per line)</label>
+            <div class="mud-input-wrapper"><textarea id="kw-sameas" class="mud-input-slot" rows="3" spellcheck="false" @bind="_sameAs" @bind:event="oninput"
+                      placeholder="https://www.wikidata.org/wiki/Q615&#10;https://en.wikipedia.org/wiki/Lionel_Messi"></textarea></div>
+            <div class="mud-input-helper-text">
+              The same thing elsewhere: its Wikidata item first, then Wikipedia, its official site, its profiles. This is
+              how search engines and AI assistants know which one you mean.
+              @if (FirstName() is { } search)
+              {
+                <a href="@($"https://www.wikidata.org/w/index.php?search={Uri.EscapeDataString(search)}")" target="_blank" rel="noopener">Find it on Wikidata</a>
+              }
+            </div>
+          </div>
+          <div class="mud-input-control">
+            <span class="mud-input-label">Related concepts</span>
+            <div class="kw-chips">
+              @foreach (var related in _related)
+              {
+                var r = related;
+                <span class="mn-chip kw-chip">@r.Name <button type="button" class="kw-chip-remove" @onclick="() => _related.Remove(r)" aria-label="@($"Remove {r.Name}")">✕</button></span>
+              }
+              @if (ModuleDialogs.IsAvailable(KeywordsDialogs.PickConcepts))
+              {
+                <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="PickRelatedAsync">Choose…</button>
+              }
+            </div>
+            <div class="mud-input-helper-text">Different things that go together: an event and its city, a company and its founder.</div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="kw-editor-side">
+        <section class="mud-paper mud-elevation-1 mn-card">
+          <h2 class="mud-typography mud-typography-h6">JSON-LD</h2>
+          @if (_concept is null)
+          {
+            <p class="mud-typography mud-typography-body2 mn-muted">Create the concept to see the schema.org data pages embed for it.</p>
+          }
+          else
+          {
+            <div class="mn-actions">
+              <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
+                <select class="mud-input-slot" @bind="_jsonLanguage" @bind:after="LoadJsonLdAsync" aria-label="Language of the JSON-LD">
+                  @foreach (var language in _concept.Labels.Where(l => l.Kind == LabelKind.Preferred).Select(l => l.Language).Distinct())
+                  {
+                    <option value="@language">@language</option>
+                  }
+                </select>
+              </div>
+              @if (Dirty) { <span class="mn-chip kw-warn">save to update</span> }
+            </div>
+            <pre class="mn-result kw-jsonld" dir="ltr">@_jsonLd</pre>
+            <p class="mud-typography mud-typography-body2 mn-muted">What a page puts in its <code>about</code> or <code>mentions</code> when it is tagged with this concept.</p>
+          }
+        </section>
+      </aside>
+    </div>
+  }
+</div>
+
+@code {
+  [SupplyParameterFromQuery(Name = "id")] public int? Id { get; set; }
+
+  private sealed class LabelRow
+  {
+    public string Language { get; set; } = "en";
+    public string Text { get; set; } = "";
+    public LabelKind Kind { get; set; } = LabelKind.Preferred;
+  }
+
+  private static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+  private IReadOnlyList<ConceptType> _types = [];
+  private ConceptDto? _concept;
+  private bool _loaded;
+  private string _type = "Thing";
+  private string? _slug;
+  private string? _description;
+  private string? _sameAs;
+  private List<LabelRow> _labels = [new()];
+  private List<ConceptRefDto> _related = [];
+  private string _jsonLanguage = "en";
+  private string _jsonLd = "";
+  private string _saved = "";
+  private int? _loadedId;
+
+  private bool IsNew => _concept is null;
+
+  private bool Dirty => Snapshot() != _saved;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (_loaded && _loadedId == Id) return;
+    _loadedId = Id;
+    await RunAsync(async () =>
+    {
+      if (_types.Count == 0) _types = await Api.ListConceptTypesAsync();
+      if (Id is { } id) Show(await Api.GetConceptAsync(id));
+      else Reset();
+      _loaded = true;
+    }, toast: false);
+    if (_concept is not null) await LoadJsonLdAsync();
+  }
+
+  private void Reset()
+  {
+    _concept = null;
+    _type = "Thing";
+    _slug = _description = _sameAs = null;
+    _labels = [new()];
+    _related = [];
+    _saved = Snapshot();
+  }
+
+  private void Show(ConceptDto concept)
+  {
+    _concept = concept;
+    _type = concept.Type;
+    _slug = concept.Slug;
+    _description = concept.Description;
+    _sameAs = string.Join("\n", concept.SameAs);
+    _labels = [.. concept.Labels.Select(l => new LabelRow { Language = l.Language, Text = l.Text, Kind = l.Kind ?? LabelKind.Preferred })];
+    if (_labels.Count == 0) _labels.Add(new());
+    _related = [.. concept.Related];
+    if (!concept.Labels.Any(l => l.Language == _jsonLanguage && l.Kind == LabelKind.Preferred))
+      _jsonLanguage = concept.Labels.FirstOrDefault(l => l.Kind == LabelKind.Preferred)?.Language ?? "en";
+    _saved = Snapshot();
+  }
+
+  private ConceptValues Values() => new()
+  {
+    Type = _type,
+    Slug = string.IsNullOrWhiteSpace(_slug) ? null : _slug.Trim(),
+    Description = string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+    Labels = [.. _labels.Where(l => l.Text.Trim().Length > 0).Select(l => new LabelValue { Language = l.Language.Trim(), Text = l.Text.Trim(), Kind = l.Kind })],
+    SameAs = [.. (_sameAs ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
+    Related = [.. _related.Select(r => r.Id)]
+  };
+
+  private string Snapshot() => JsonSerializer.Serialize(Values());
+
+  private void Changed() { } // re-renders on any edit, for the "save to update" hint
+
+  private string? FirstName() => _labels.FirstOrDefault(l => l.Text.Trim().Length > 0)?.Text.Trim();
+
+  private void AddLabel(LabelKind kind)
+  {
+    var used = _labels.Where(l => l.Kind == LabelKind.Preferred).Select(l => l.Language).ToHashSet();
+    var language = kind == LabelKind.Preferred
+      ? KeywordsUi.CommonLanguages.Select(c => c.Tag).FirstOrDefault(t => !used.Contains(t)) ?? ""
+      : _labels.FirstOrDefault()?.Language ?? "en";
+    _labels.Add(new LabelRow { Language = language, Kind = kind });
+  }
+
+  private async Task SaveAsync()
+  {
+    var values = Values();
+    await RunAsync(async () =>
+    {
+      if (_concept is null)
+      {
+        var created = await Api.CreateConceptAsync(values);
+        await MudTail.ToastAsync($"Created \"{created.Name}\".", "success");
+        Show(created);
+        _loadedId = created.Id;
+        Nav.NavigateTo($"keywords/concept?id={created.Id}", replace: true);
+      }
+      else
+      {
+        Show(await Api.EditConceptAsync(_concept.Id, new ConceptEdit { Version = _concept.Version, Values = values }));
+        await MudTail.ToastAsync("Saved.", "success");
+      }
+    }, then: LoadJsonLdAsync);
+  }
+
+  private async Task SetStatusAsync(bool retire)
+  {
+    if (_concept is not { } concept) return;
+    await RunAsync(async () => Show(retire
+      ? await Api.RetireConceptAsync(concept.Id, new VersionRead { Version = concept.Version })
+      : await Api.RestoreConceptAsync(concept.Id, new VersionRead { Version = concept.Version })));
+  }
+
+  private async Task LoadJsonLdAsync()
+  {
+    if (_concept is not { } concept) return;
+    await RunAsync(async () =>
+    {
+      var doc = await Api.GetConceptJsonLdAsync(concept.Id, _jsonLanguage);
+      _jsonLd = JsonSerializer.Serialize(doc.JsonLd, Pretty);
+    }, toast: false);
+  }
+
+  private async Task PickRelatedAsync()
+  {
+    var selected = _related.Select(r => r.Id.ToString()).ToArray();
+    var result = await ModuleDialogs.ShowAsync(KeywordsDialogs.PickConcepts, new { multiple = true, selected, exclude = _concept is null ? Array.Empty<string>() : [_concept.Id.ToString()] });
+    if (result.Canceled || result.As<KeywordsDialogs.Picked>() is not { } picked) return;
+    var names = picked.Concepts.ToDictionary(c => c.Id, c => c);
+    _related = [.. picked.Ids.Select(id => int.TryParse(id, out var n) ? n : 0).Where(n => n > 0 && n != _concept?.Id)
+      .Select(n => names.TryGetValue(n.ToString(), out var c)
+        ? new ConceptRefDto { Id = n, Name = c.Name, Type = c.Type, Slug = c.Slug, Status = ConceptStatus.Active }
+        : _related.FirstOrDefault(r => r.Id == n) ?? new ConceptRefDto { Id = n, Name = $"#{n}", Type = "Thing", Slug = "" })];
+  }
+}

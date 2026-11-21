@@ -1,0 +1,128 @@
+@page "/keywords"
+@inherits KeywordsPageBase
+
+@*
+  The tenant's concepts (GET /api/keywords/concepts): search any label in any language, filter by type, include the
+  retired ones. A row opens the concept (/keywords/concept?id=); "New concept" opens an empty one.
+*@
+
+<PageTitle>Keywords</PageTitle>
+
+<div class="mud-container mn-page">
+  <header class="mn-header">
+    <div>
+      <h1 class="mud-typography mud-typography-h4">Keywords</h1>
+      <p class="mud-typography mud-typography-body1 mn-muted">
+        The people, organizations, places, events and topics your content is about. One concept, one id, with its name in
+        every language, its other names and its links (Wikidata, Wikipedia), so search engines and AI know exactly which
+        one you mean. Reading needs keywords.read; changing, keywords.manage.
+      </p>
+    </div>
+    <form class="mn-actions" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+      <div class="mud-input-control mn-inline">
+        <label class="mud-input-label" for="kw-search">Search</label>
+        <div class="mud-input-wrapper mud-input-wrapper--dense">
+          <input id="kw-search" type="search" class="mud-input-slot" @bind="_search" placeholder="any name, any language" />
+        </div>
+      </div>
+      <div class="mud-input-control mn-inline kw-type-filter">
+        <label class="mud-input-label" for="kw-type">Type</label>
+        <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
+          <select id="kw-type" class="mud-input-slot" @bind="_type" @bind:after="SearchAsync">
+            <option value="">All types</option>
+            @foreach (var t in _types)
+            {
+              <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option>
+            }
+          </select>
+        </div>
+      </div>
+      <label class="mn-check">
+        <input type="checkbox" @bind="_retired" @bind:after="SearchAsync" /> Retired too
+      </label>
+      <button type="submit" class="mud-button-root mud-button-outlined mud-button-primary mud-button-medium" disabled="@Busy">Search</button>
+      <a href="keywords/concept" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium">New concept</a>
+    </form>
+  </header>
+
+  @if (Error is not null)
+  {
+    <p class="mud-typography mud-typography-body2 mn-error" role="alert">@Error</p>
+  }
+
+  <section class="mud-paper mud-elevation-1 mn-card">
+    <MudTailDataTable @ref="_table" RowKey="id" Columns="Columns" OnRowClick="Open" EmptyText="No concepts yet. Add the first one." />
+    <div class="mn-pager">
+      <span class="mud-typography mud-typography-body2 mn-muted">@PagerText</span>
+      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page - 1)" disabled="@(Busy || _page <= 1)">Previous</button>
+      <button type="button" class="mud-button-root mud-button-outlined mud-button-primary mud-button-small" @onclick="() => GoToAsync(_page + 1)" disabled="@(Busy || _page >= LastPage)">Next</button>
+    </div>
+  </section>
+</div>
+
+@code {
+  private const int PageSize = 20;
+
+  private static readonly IReadOnlyList<object> Columns =
+  [
+    new { key = "name", title = "Name" },
+    new { key = "type", title = "Type", width = "160px" },
+    new { key = "other", title = "Other names" },
+    new { key = "languages", title = "Languages", width = "120px" },
+    new { key = "status", title = "Status", width = "100px" },
+  ];
+
+  private MudTailDataTable? _table;
+  private IReadOnlyList<ConceptType> _types = [];
+  private int _page = 1;
+  private int _total;
+  private string _search = "";
+  private string _type = "";
+  private bool _retired;
+
+  private int LastPage => Math.Max(1, (_total + PageSize - 1) / PageSize);
+
+  private string PagerText => _total == 0 ? "" : $"Page {_page} of {LastPage} ({_total} concepts)";
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    await RunAsync(async () => _types = await Api.ListConceptTypesAsync(), toast: false);
+    await LoadAsync();
+  }
+
+  private async Task LoadAsync()
+  {
+    await RunAsync(async () =>
+    {
+      var search = string.IsNullOrWhiteSpace(_search) ? null : _search.Trim();
+      var result = await Api.ListConceptsAsync(_page, PageSize, search, _type.Length > 0 ? _type : null, null, _retired);
+      _total = result.Total;
+      if (_table is not null) await _table.SetDataAsync(result.Items.Select(ToRow).ToList());
+    });
+  }
+
+  private object ToRow(ConceptSummaryDto c) => new
+  {
+    id = c.Id.ToString(),
+    name = c.Name,
+    type = KeywordsUi.TypeLabel(c.Type, _types),
+    other = string.Join(", ", c.AlternateNames),
+    languages = string.Join(" ", c.Languages),
+    status = c.Status == ConceptStatus.Retired ? "retired" : "",
+  };
+
+  private async Task GoToAsync(int page)
+  {
+    _page = Math.Clamp(page, 1, LastPage);
+    await LoadAsync();
+  }
+
+  private async Task SearchAsync()
+  {
+    _page = 1;
+    await LoadAsync();
+  }
+
+  private void Open(string id) => Nav.NavigateTo($"keywords/concept?id={Uri.EscapeDataString(id)}");
+}

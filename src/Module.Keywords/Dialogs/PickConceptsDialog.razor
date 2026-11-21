@@ -1,0 +1,196 @@
+@attribute [ClientDialog(KeywordsDialogs.PickConcepts, Title = "Choose keywords", MaxWidth = "640px")]
+@inherits KeywordsPageBase
+
+@*
+  Dialog "Module.Keywords/pick-concepts" (see KeywordsDialogs.PickConcepts): search the tenant's concepts in any
+  language and choose one or more; a name that is not there yet can be added on the spot (keywords.manage).
+    parameters  { multiple?: bool, selected?: [ids], type?: string, language?: string, exclude?: [ids] }
+    result      { ids: [...], concepts: [{ id, name, type, slug }] }
+  Shown on other modules' pages too (the DynamicFields editor, Taxonomies), so its styles are kw- classes only.
+*@
+
+<div class="mud-dialog-content kw-picker">
+  <form class="kw-picker-search" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+    <div class="mud-input-wrapper mud-input-wrapper--dense kw-picker-query">
+      <input type="search" class="mud-input-slot" @bind="_query" @bind:event="oninput" @bind:after="SearchAsync"
+             placeholder="Search any name, any language" aria-label="Search concepts" autofocus />
+    </div>
+    @if (_fixedType is null)
+    {
+      <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
+        <select class="mud-input-slot" @bind="_type" @bind:after="SearchAsync" aria-label="Type">
+          <option value="">All types</option>
+          @foreach (var t in _types) { <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option> }
+        </select>
+      </div>
+    }
+  </form>
+
+  @if (_multiple && _selected.Count > 0)
+  {
+    <div class="kw-chips kw-picker-selected" aria-label="Chosen">
+      @foreach (var s in _selected)
+      {
+        var c = s;
+        <span class="mn-chip kw-chip">@c.Name <button type="button" class="kw-chip-remove" @onclick="() => Toggle(c)" aria-label="@($"Remove {c.Name}")">✕</button></span>
+      }
+    </div>
+  }
+
+  @if (Error is not null)
+  {
+    <p class="mud-typography mud-typography-body2 mn-error" role="alert">@Error</p>
+  }
+
+  <ul class="kw-picker-results" role="listbox" aria-multiselectable="@(_multiple ? "true" : "false")">
+    @foreach (var item in _results)
+    {
+      var c = item;
+      var on = _selected.Any(s => s.Id == c.Id);
+      <li role="option" aria-selected="@(on ? "true" : "false")" class="@(on ? "kw-on" : "")" @onclick="() => PickAsync(c)">
+        @if (_multiple) { <input type="checkbox" checked="@on" tabindex="-1" aria-hidden="true" /> }
+        <span class="kw-picker-name">
+          <strong>@c.Name</strong>
+          <span class="mn-chip">@KeywordsUi.TypeLabel(c.Type, _types)</span>
+          @if (c.AlternateNames.Count > 0) { <span class="mn-muted"> @string.Join(" · ", c.AlternateNames.Take(3))</span> }
+          @if (c.Description is { Length: > 0 } d) { <span class="kw-picker-description mn-muted">@d</span> }
+        </span>
+      </li>
+    }
+  </ul>
+  @if (_results.Count == 0 && !Busy)
+  {
+    <p class="mud-typography mud-typography-body2 mn-muted">@(_query.Trim().Length == 0 ? "No concepts yet." : $"Nothing matches \"{_query.Trim()}\".")</p>
+  }
+  @if (_more > 0) { <p class="mud-typography mud-typography-body2 mn-muted">@_more more: type more of the name to narrow it down.</p> }
+
+  @if (_query.Trim().Length > 0 && !_results.Any(r => string.Equals(r.Name, _query.Trim(), StringComparison.OrdinalIgnoreCase)))
+  {
+    <details class="kw-picker-new" open="@(_results.Count == 0)">
+      <summary>Add "@_query.Trim()" as a new concept</summary>
+      <div class="kw-picker-new-row">
+        <div class="mud-input-wrapper mud-input-wrapper--dense mud-input-wrapper--select">
+          <select class="mud-input-slot" @bind="_newType" aria-label="Type of the new concept">
+            @foreach (var t in _types.Where(t => _fixedType is null || t.Name == _fixedType)) { <option value="@t.Name">@KeywordsUi.Indent(t, _types)@t.Label</option> }
+          </select>
+        </div>
+        <div class="mud-input-wrapper mud-input-wrapper--dense kw-label-language">
+          <input class="mud-input-slot" @bind="_newLanguage" maxlength="16" aria-label="Language of the name" />
+        </div>
+        <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-small" @onclick="CreateAsync" disabled="@Busy">Add</button>
+      </div>
+      <p class="mud-typography mud-typography-caption mn-muted">Names in other languages and links can be added on the Keywords page later.</p>
+    </details>
+  }
+</div>
+<div class="mud-dialog-actions">
+  <button type="button" class="mud-button-root mud-button-text mud-button-medium" @onclick="Dialog.Cancel">Cancel</button>
+  @if (_multiple)
+  {
+    <button type="button" class="mud-button-root mud-button-filled mud-button-primary mud-button-medium" @onclick="Done">Choose (@_selected.Count)</button>
+  }
+</div>
+
+@code {
+  [CascadingParameter] public IDialogReference Dialog { get; set; } = default!;
+
+  /// <summary>The caller's parameters (web JSON).</summary>
+  private sealed record Parameters(bool? Multiple, List<string>? Selected, string? Type, string? Language, List<string>? Exclude);
+
+  private const int PageSize = 20;
+
+  private bool _multiple;
+  private string? _fixedType;
+  private string? _language;
+  private HashSet<int> _exclude = [];
+  private IReadOnlyList<ConceptType> _types = [];
+  private List<ConceptSummaryDto> _results = [];
+  private readonly List<ConceptSummaryDto> _selected = [];
+  private string _query = "";
+  private string _type = "";
+  private string _newType = "Thing";
+  private string _newLanguage = "en";
+  private int _more;
+  private int _searchNumber;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (!firstRender) return;
+    var parameters = Dialog.GetParameters<Parameters>();
+    _multiple = parameters?.Multiple == true;
+    _fixedType = string.IsNullOrWhiteSpace(parameters?.Type) ? null : parameters.Type.Trim();
+    _language = string.IsNullOrWhiteSpace(parameters?.Language) ? null : parameters.Language.Trim();
+    _exclude = [.. (parameters?.Exclude ?? []).Select(Number).Where(n => n > 0)];
+    _newLanguage = _language ?? "en";
+    _newType = _fixedType ?? "Thing";
+
+    var selected = (parameters?.Selected ?? []).Select(Number).Where(n => n > 0).Distinct().ToList();
+    await RunAsync(async () =>
+    {
+      _types = await Api.ListConceptTypesAsync();
+      if (selected.Count > 0) _selected.AddRange(await Api.LookupConceptsAsync(selected, _language));
+    }, toast: false);
+    await SearchAsync();
+  }
+
+  private static int Number(string? id) => int.TryParse(id, out var n) ? n : 0;
+
+  private async Task SearchAsync()
+  {
+    var number = ++_searchNumber;
+    var query = _query.Trim();
+    var type = _fixedType ?? (_type.Length > 0 ? _type : null);
+    ConceptPage? page = null;
+    await RunAsync(async () => page = await Api.ListConceptsAsync(1, PageSize, query.Length > 0 ? query : null, type, _language, false), toast: false);
+    if (number != _searchNumber || page is null) return; // a newer search is on its way
+    _results = [.. page.Items.Where(c => !_exclude.Contains(c.Id))];
+    _more = Math.Max(0, page.Total - page.Items.Count);
+    StateHasChanged(); // the first search runs from OnAfterRenderAsync, which does not re-render by itself
+  }
+
+  private void Toggle(ConceptSummaryDto concept)
+  {
+    var at = _selected.FindIndex(s => s.Id == concept.Id);
+    if (at >= 0) _selected.RemoveAt(at);
+    else _selected.Add(concept);
+  }
+
+  private Task PickAsync(ConceptSummaryDto concept)
+  {
+    if (_multiple) Toggle(concept);
+    else
+    {
+      _selected.Clear();
+      _selected.Add(concept);
+      Done();
+    }
+    return Task.CompletedTask;
+  }
+
+  private async Task CreateAsync()
+  {
+    var name = _query.Trim();
+    if (name.Length == 0) return;
+    ConceptDto? created = null;
+    var ok = await RunAsync(async () => created = await Api.CreateConceptAsync(new ConceptValues
+    {
+      Type = _newType,
+      Labels = [new LabelValue { Language = _newLanguage.Trim().Length > 0 ? _newLanguage.Trim() : "en", Text = name, Kind = LabelKind.Preferred }]
+    }), toast: false);
+    if (!ok || created is null) return;
+
+    var summary = new ConceptSummaryDto
+    {
+      Id = created.Id, Slug = created.Slug, Type = created.Type, Name = created.Name, Status = created.Status, Version = created.Version,
+      Languages = [.. created.Labels.Select(l => l.Language).Distinct()], AlternateNames = []
+    };
+    _results.Insert(0, summary);
+    await PickAsync(summary);
+  }
+
+  private void Done() => Dialog.Close(new
+  {
+    ids = _selected.Select(c => c.Id.ToString()).ToArray(),
+    concepts = _selected.Select(c => new { id = c.Id.ToString(), name = c.Name, type = c.Type, slug = c.Slug }).ToArray()
+  });
+}

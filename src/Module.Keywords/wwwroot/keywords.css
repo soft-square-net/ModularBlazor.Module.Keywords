@@ -13,3 +13,36 @@
 .mn-body { min-height: 8em; resize: vertical; font: inherit; }
 .mn-row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .mn-pager { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: flex-end; margin-top: 12px; }
+.mn-check { display: inline-flex; gap: 6px; align-items: center; padding-block: 8px; }
+.mn-chip { display: inline-flex; gap: 4px; align-items: center; margin-inline-start: 8px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--mud-palette-lines-default, currentColor); font-size: 0.8125rem; }
+.mn-result { margin: 12px 0 0; padding: 12px; overflow-x: auto; border-radius: 6px; background: var(--mud-palette-background-gray, rgba(127,127,127,.12)); font-size: 0.8125rem; }
+.kw-type-filter { min-width: 180px; }
+/* The concept editor (/keywords/concept): the form beside its JSON-LD; one column on narrow screens. */
+.kw-back { display: inline-block; margin-bottom: 4px; color: var(--mud-palette-primary); text-decoration: none; }
+.kw-editor { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 16px; align-items: start; }
+.kw-editor-side { position: sticky; top: 72px; }
+.kw-jsonld { max-height: 60vh; white-space: pre-wrap; word-break: break-word; }
+@media (max-width: 960px) { .kw-editor { grid-template-columns: minmax(0, 1fr); } .kw-editor-side { position: static; } }
+.kw-warn { border-color: var(--mud-palette-warning); color: var(--mud-palette-warning); }
+/* Shared by the editor and the pick-concepts dialog, which other modules' pages show: kw- classes only. */
+.kw-label { display: grid; grid-template-columns: 90px minmax(0, 1fr) 130px auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.kw-label-language { max-width: 90px; }
+.kw-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kw-chips .mn-chip, .kw-chip { margin-inline-start: 0; }
+.kw-chip-remove { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; font-size: 0.75rem; opacity: .7; }
+.kw-chip-remove:hover { opacity: 1; }
+.kw-picker { display: grid; gap: 8px; max-height: 70vh; overflow-y: auto; }
+.kw-picker .mn-chip { display: inline-flex; gap: 4px; align-items: center; padding: 0 8px; border-radius: 999px; border: 1px solid var(--mud-palette-lines-default, currentColor); font-size: 0.8125rem; }
+.kw-picker .mn-muted { color: var(--mud-palette-text-secondary); }
+.kw-picker .mn-error { color: var(--mud-palette-error); }
+.kw-picker-search { display: flex; gap: 8px; }
+.kw-picker-query { flex: 1 1 auto; min-width: 0; }
+.kw-picker-search > .mud-input-wrapper--select { flex: 0 0 180px; width: auto; }
+.kw-picker-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.kw-picker-results li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.kw-picker-results li:hover { background: var(--mud-palette-action-default-hover, rgba(127,127,127,.12)); }
+.kw-picker-results li.kw-on { background: var(--mud-palette-primary-hover, rgba(89,74,226,.12)); }
+.kw-picker-name { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.kw-picker-description { flex-basis: 100%; font-size: 0.8125rem; }
+.kw-picker-new summary { cursor: pointer; color: var(--mud-palette-primary); }
+.kw-picker-new-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: 8px; align-items: center; margin-top: 8px; }
