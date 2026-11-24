@@ -130,7 +130,7 @@ dotnet run --project playground --launch-profile dev
 
 | Profile | What it does |
 | --- | --- |
-| `dev` (default) | The WebApi loads the module straight from `src/WebApi.Modules.Keywords.Web/bin/<Configuration>/net10.0` (`Modules:Local`), and the client parts from their build output (`ClientModules:Local`), Development only: installed and active on start. Change code, rebuild, restart the `webapi` resource in the dashboard |
+| `dev` (default) | The WebApi loads the module straight from `src/WebApi.Modules.Keywords.Web/bin/<Configuration>/net10.0` (`Modules:Local`), and the client parts from their build output (`ClientModules:Local`), Development only: installed and active on start. Save: the `watch-server` and `watch-client` resources (`dotnet watch build`) rebuild, the WebApi swaps the new server build in without a restart, and the open page reloads the client module in place, still signed in (about 5 s). Building in the IDE does the same; `Playground__Watch=false` leaves building to the IDE |
 | `install` | The platform starts without the module, as in production; upload `playground/out/keywords.zip` on http://localhost:5070/host-modules (sign in as the dev platform admin) and activate it, then the two dlls in `playground/out/client/` on http://localhost:5070/client-modules, the API client first |
 
 In Development the platform seeds the tenants `acme` and `globex`. The playground grants the module's permissions in

@@ -1,8 +1,10 @@
 // Keywords playground: a small platform with this repo's module in it, for local development. Two loops:
 //
 //   dev (default, launch profile "dev"): the WebApi loads the module, and its client parts, straight from their build
-//     output (Modules:Local and ClientModules:Local, Development only). Change code, rebuild, restart the "webapi" resource in the dashboard (or F5 again): the new
-//     build is installed and active, with no packing or uploading.
+//     output (Modules:Local and ClientModules:Local, Development only). Save: the "watch-server" and "watch-client"
+//     resources (dotnet watch build) rebuild the module, the WebApi swaps the new server build in without a restart, and
+//     the open browser reloads the client module in place. No packing, uploading or restarting. Building in the IDE
+//     works the same way; set Playground:Watch=false to leave building to the IDE.
 //   install (launch profile "install"): the platform starts without the module, as in production. Every build zips
 //     the module to playground/out/keywords.zip and copies its client parts to playground/out/client; upload the zip on
 //     the client's Host Modules page (http://localhost:5070, sign in as the dev platform admin) and activate it, then
@@ -87,6 +89,18 @@ if (mode == "dev")
     webApi.WithEnvironment("Modules__Local__keywords", Metadata("ModuleOutput"))
         .WithEnvironment(ClientLocal + "WebApi.Modules.Keywords.Client", Metadata("ApiClientOutput"))
         .WithEnvironment(ClientLocal + "Module.Keywords", Metadata("UiOutput"));
+
+    // Rebuild on save: the WebApi watches the build outputs above and swaps the server part in (blue/green, no 404),
+    // the client-modules module reinstalls the client parts and the open browser reloads them in place. The server part
+    // and the client parts share no project, so the two builds never write the same files.
+    if (!string.Equals(builder.Configuration["Playground:Watch"], "false", StringComparison.OrdinalIgnoreCase))
+    {
+        foreach (var (name, project) in new[] { ("watch-server", Metadata("ModuleProject")), ("watch-client", Metadata("UiProject")) })
+            builder.AddExecutable(name, "dotnet", Path.GetDirectoryName(project)!,
+                    "watch", "build", "--non-interactive", "--project", project, "--configuration", Metadata("Configuration"))
+                .WithEnvironment("DOTNET_WATCH_SUPPRESS_EMOJIS", "1")
+                .WaitFor(webApi);
+    }
 }
 
 builder.AddProject<Projects.ModularBlazor_BlzWebClient>("blzwebclient", launchProfileName: null)
