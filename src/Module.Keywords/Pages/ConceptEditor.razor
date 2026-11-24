@@ -11,13 +11,12 @@
   that has it keeps it.
 *@
 
-<PageTitle>@(IsNew ? L["New concept"] : _concept?.Name ?? L["Concept"])</PageTitle>
+<PageHeader Title="@(IsNew ? L["New concept"] : _concept?.Name ?? L["Concept {0}", Id])" />
 
 <div class="mud-container mn-page">
   <header class="mn-header">
     <div>
       <a href="keywords" class="mud-typography mud-typography-body2 kw-back">@L["← Keywords"]</a>
-      <h1 class="mud-typography mud-typography-h4">@(IsNew ? L["New concept"] : _concept?.Name ?? L["Concept {0}", Id])</h1>
       <p class="mud-typography mud-typography-body2 mn-muted">
         @if (_concept is { } c)
         {
