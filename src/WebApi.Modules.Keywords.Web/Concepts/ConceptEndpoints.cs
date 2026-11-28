@@ -32,6 +32,22 @@ public sealed class Lookup : IEndpoint
         (await sender.Send(new LookupConceptsQuery(ids, language), ct)).ToOkResult();
 }
 
+/// <summary>POST /concepts/match: for each name, the concepts like it (a name an AI or another module proposed).</summary>
+public sealed class Match : IEndpoint
+{
+    /// <summary>The request body: up to 20 names, the language to name the matches in, optionally one schema.org type.</summary>
+    public sealed record ConceptMatchRequest(IReadOnlyList<string> Terms, string? Language = null, string? Type = null);
+
+    public static RouteHandlerBuilder Map(IEndpointRouteBuilder concepts) =>
+        concepts.MapPost("/match", HandleAsync)
+            .RequirePermission(KeywordsPermissions.Read)
+            .WithName("Keywords_MatchConcepts")
+            .WithSummary("For each term (at most 20), up to 5 active concepts with a name like it in any language, best first; exact when a shown name is the term. Case, accents and Arabic letter forms, ta marbuta and a leading al- are ignored.");
+
+    private static async Task<Results<Ok<IReadOnlyList<TermMatchesDto>>, ProblemHttpResult>> HandleAsync(ConceptMatchRequest body, ISender sender, CancellationToken ct) =>
+        (await sender.Send(new MatchConceptsQuery(body.Terms ?? [], body.Language, body.Type), ct)).ToOkResult();
+}
+
 /// <summary>GET /concepts/types: the schema.org types a concept can have.</summary>
 public sealed class Types : IEndpoint
 {

@@ -99,3 +99,105 @@ internal static class ConceptLookup
         return [.. ids.Where(found.ContainsKey).Select(id => ConceptRefDto.From(found[id], language))];
     }
 }
+
+/// <summary>
+/// Turns names into concepts: for each of <paramref name="Terms"/> (keywords another module or an AI proposed), the
+/// active concepts with a name like it, best first. A term matches any label in any language, hidden ones too, on its
+/// <see cref="MatchKey"/> (case, accents and Arabic letter forms, ta marbuta and a leading ال ignored);
+/// <paramref name="Language"/> picks the names shown and <paramref name="Type"/> keeps one schema.org type. Nothing is
+/// created: the caller offers the matches in the pick-concepts dialog, where a person chooses.
+/// </summary>
+public sealed record MatchConceptsQuery(IReadOnlyList<string> Terms, string? Language = null, string? Type = null)
+    : IQuery<Result<IReadOnlyList<TermMatchesDto>>>;
+
+public sealed class MatchConceptsHandler(IReadRepository<Concept> concepts)
+    : IQueryHandler<MatchConceptsQuery, Result<IReadOnlyList<TermMatchesDto>>>
+{
+    public async ValueTask<Result<IReadOnlyList<TermMatchesDto>>> Handle(MatchConceptsQuery query, CancellationToken ct)
+    {
+        var terms = (query.Terms ?? []).Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct(StringComparer.Ordinal).ToList();
+        if (terms.Count == 0)
+            return Result<IReadOnlyList<TermMatchesDto>>.Invalid(new ValidationError(nameof(query.Terms), "Give at least one term."));
+        if (terms.Count > ConceptMatching.MaxTerms)
+            return Result<IReadOnlyList<TermMatchesDto>>.Invalid(new ValidationError(nameof(query.Terms), $"Match at most {ConceptMatching.MaxTerms} terms at a time."));
+        if (terms.FirstOrDefault(t => t.Length > ConceptMatching.MaxTermLength) is { } tooLong)
+            return Result<IReadOnlyList<TermMatchesDto>>.Invalid(new ValidationError(nameof(query.Terms), $"A term has at most {ConceptMatching.MaxTermLength} characters: '{tooLong[..20]}...'."));
+        if (query.Type is { Length: > 0 } type && ConceptTypes.Find(type) is null)
+            return Result<IReadOnlyList<TermMatchesDto>>.Invalid(new ValidationError(nameof(query.Type), $"'{type}' is not a concept type."));
+
+        var results = new List<TermMatchesDto>(terms.Count);
+        foreach (var term in terms)
+        {
+            var key = MatchKey.For(term);
+            var stem = MatchKey.Stem(key);
+            if (stem.Length == 0) { results.Add(new TermMatchesDto(term, [], false)); continue; }
+            var candidates = await concepts.ListAsync(new ConceptsContainingSpec(stem, query.Type is { Length: > 0 } ? query.Type : null, ConceptMatching.Candidates), ct);
+            results.Add(ConceptMatching.Rank(term, key, candidates, query.Language));
+        }
+        return results;
+    }
+}
+
+/// <summary>How a name is scored against a concept's labels; pure, so the ranking is tested without a database.</summary>
+public static class ConceptMatching
+{
+    /// <summary>The most terms one call matches.</summary>
+    public const int MaxTerms = 20;
+
+    /// <summary>The most matches returned per term.</summary>
+    public const int MaxMatches = 5;
+
+    public const int MaxTermLength = 200;
+
+    /// <summary>How many concepts containing a term's stem are read and scored per term.</summary>
+    public const int Candidates = 50;
+
+    /// <summary>
+    /// How alike two match keys are: 1 when equal; 0.8 when one starts with the other as whole words ("messi" and
+    /// "messi lionel"); 0.7 when one holds the other as whole words; 0.5 when one holds the other at all (a part of
+    /// a word, at least three letters); else 0.
+    /// </summary>
+    public static double Score(string termKey, string labelKey)
+    {
+        if (termKey.Length == 0 || labelKey.Length == 0) return 0;
+        if (termKey == labelKey) return 1;
+        var (shorter, longer) = termKey.Length <= labelKey.Length ? (termKey, labelKey) : (labelKey, termKey);
+        if (longer.StartsWith(shorter + " ", StringComparison.Ordinal)) return 0.8;
+        if ($" {longer} ".Contains($" {shorter} ", StringComparison.Ordinal)) return 0.7;
+        if (shorter.Length >= 3 && longer.Contains(shorter, StringComparison.Ordinal)) return 0.5;
+        return 0;
+    }
+
+    /// <summary>
+    /// The best <see cref="MaxMatches"/> of <paramref name="candidates"/> for a term: each concept scores its best
+    /// label (a hidden label, a misspelling, counts 0.9 for an equal key), ties go to the shorter name, then the id.
+    /// <c>exact</c> is true when a shown name (preferred or alternate) equals the term.
+    /// </summary>
+    public static TermMatchesDto Rank(string term, string termKey, IEnumerable<Concept> candidates, string? language)
+    {
+        var scored = new List<(Concept Concept, double Score, bool Exact)>();
+        foreach (var concept in candidates)
+        {
+            double best = 0;
+            var exact = false;
+            foreach (var label in concept.Labels)
+            {
+                var score = Score(termKey, MatchKey.FromTextKey(label.SearchKey));
+                if (score == 1 && label.Kind == LabelKind.Hidden) score = 0.9;
+                else if (score == 1) exact = true;
+                best = Math.Max(best, score);
+            }
+            if (best > 0) scored.Add((concept, best, exact));
+        }
+
+        var top = scored
+            .OrderByDescending(s => s.Score)
+            .ThenBy(s => s.Concept.NameIn(language).Length)
+            .ThenBy(s => s.Concept.Id)
+            .Take(MaxMatches)
+            .ToList();
+        return new TermMatchesDto(term,
+            [.. top.Select(s => new ConceptMatchDto(s.Concept.Id, s.Concept.NameIn(language), s.Concept.Type, s.Concept.Slug, s.Score))],
+            top.Any(s => s.Exact));
+    }
+}

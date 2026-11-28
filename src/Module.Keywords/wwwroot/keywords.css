@@ -35,6 +35,9 @@
 .kw-picker .mn-chip { display: inline-flex; gap: 4px; align-items: center; padding: 0 8px; border-radius: 999px; border: 1px solid var(--mud-palette-lines-default, currentColor); font-size: 0.8125rem; }
 .kw-picker .mn-muted { color: var(--mud-palette-text-secondary); }
 .kw-picker .mn-error { color: var(--mud-palette-error); }
+.kw-suggestion { background: none; color: inherit; font: inherit; cursor: pointer; }
+.kw-suggestion:hover { background: var(--mud-palette-action-default-hover, rgba(127,127,127,.12)); }
+.kw-suggestion.kw-on { background: var(--mud-palette-primary-hover, rgba(89,74,226,.12)); border-color: var(--mud-palette-primary); }
 .kw-picker-search { display: flex; gap: 8px; }
 .kw-picker-query { flex: 1 1 auto; min-width: 0; }
 .kw-picker-search > .mud-input-wrapper--select { flex: 0 0 180px; width: auto; }

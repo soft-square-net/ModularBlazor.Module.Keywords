@@ -78,5 +78,8 @@
   "your account lacks the permission for this (keywords.* in this tenant).": "حسابك لا يملك الصلاحية لذلك (keywords.* في هذا المستأجر).",
   "not found.": "غير موجود.",
   "someone changed it meanwhile. Reload and try again.": "عدّله شخص آخر في الأثناء. أعد التحميل وحاول مجددًا.",
-  "The gateway is not reachable ({0}).": "تعذّر الوصول إلى البوابة ({0})."
+  "The gateway is not reachable ({0}).": "تعذّر الوصول إلى البوابة ({0}).",
+  "Suggested names": "أسماء مقترحة",
+  "Suggested:": "مقترحة:",
+  "Search for \"{0}\"": "البحث عن «{0}»"
 }

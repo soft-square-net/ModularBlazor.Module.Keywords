@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using soft.square.net.WebApi.Data;
 using soft.square.net.WebApi.Modules.Keywords.Core.ConceptAggregate;
 using soft.square.net.WebApi.Modules.Keywords.Core.ConceptAggregate.Specifications;
+using soft.square.net.WebApi.Modules.Keywords.UseCases.Concepts;
 
 namespace soft.square.net.WebApi.Modules.Keywords.IntegrationTests.Data;
 
@@ -52,6 +53,38 @@ public sealed class EfRepositoryConcepts : IDisposable
         (await concepts.CountAsync(spec, Ct)).ShouldBe(2);
         (await concepts.ListAsync(new ConceptsPageSpec(1, 10, search: "CAIRO", type: "City"), Ct)).Single().Name.ShouldBe("Cairo");
         (await concepts.ListAsync(new ConceptsPageSpec(1, 10, search: "cairo", type: "Person"), Ct)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task MatchTurnsNamesIntoConceptsOfTheTenant()
+    {
+        var cairo = await AddAsync("City", "acme", new LabelValue("en", "Cairo"), new LabelValue("ar", "القاهرة"));
+        var university = await AddAsync("Organization", "acme", new LabelValue("en", "Cairo University"), new LabelValue("ar", "جامعة القاهرة"));
+        await AddAsync("City", "globex", new LabelValue("en", "Cairo"), new LabelValue("ar", "القاهرة"));
+        var retired = await AddAsync("Thing", "acme", new LabelValue("en", "Old Cairo"));
+        await using (var context = _database.For("acme"))
+        {
+            var concepts = new EfRepository<Concept>(context);
+            var concept = await concepts.FirstOrDefaultAsync(new ConceptByIdSpec(retired.Id), Ct);
+            concept!.Retire(Now);
+            await concepts.UpdateAsync(concept, Ct);
+        }
+
+        await using var reader = _database.For("acme");
+        var result = await new MatchConceptsHandler(new EfRepository<Concept>(reader))
+            .Handle(new MatchConceptsQuery(["قاهره", "cairo university", "Alexandria"], "ar"), Ct);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value[0].Exact.ShouldBeTrue();
+        result.Value[0].Matches.Select(m => m.Id).ShouldBe([cairo.Id, university.Id]); // not globex's, not the retired one
+        result.Value[0].Matches[0].Name.ShouldBe("القاهرة");
+        result.Value[1].Matches[0].Id.ShouldBe(university.Id);
+        result.Value[1].Exact.ShouldBeTrue();
+        result.Value[2].Matches.ShouldBeEmpty();
+        result.Value[2].Exact.ShouldBeFalse();
+
+        var cities = await new MatchConceptsHandler(new EfRepository<Concept>(reader)).Handle(new MatchConceptsQuery(["Cairo"], "en", "City"), Ct);
+        cities.Value.Single().Matches.Select(m => m.Id).ShouldBe([cairo.Id]);
     }
 
     [Fact]
