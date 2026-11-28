@@ -86,3 +86,9 @@ public static class ConceptResults
         }
     }
 }
+
+/// <summary>The concepts like one term, best first; <see cref="Exact"/> when a shown name of one of them is the term.</summary>
+public sealed record TermMatchesDto(string Term, IReadOnlyList<ConceptMatchDto> Matches, bool Exact);
+
+/// <summary>A concept like a term: enough to offer it and keep its id. <see cref="Score"/> runs from 0 to 1.</summary>
+public sealed record ConceptMatchDto(int Id, string Name, string Type, string Slug, double Score);

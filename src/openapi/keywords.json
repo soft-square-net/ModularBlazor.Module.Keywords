@@ -154,6 +154,40 @@
         }
       }
     },
+    "/api/keywords/concepts/match": {
+      "post": {
+        "tags": [
+          "Concepts"
+        ],
+        "summary": "For each term (at most 20), up to 5 active concepts with a name like it in any language, best first; exact when a shown name is the term. Case, accents and Arabic letter forms, ta marbuta and a leading al- are ignored.",
+        "operationId": "Keywords_MatchConcepts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConceptMatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TermMatchesDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/keywords/concepts/types": {
       "get": {
         "tags": [
@@ -494,6 +528,61 @@
           }
         }
       },
+      "ConceptMatchDto": {
+        "required": [
+          "id",
+          "name",
+          "type",
+          "slug",
+          "score"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ConceptMatchRequest": {
+        "required": [
+          "terms"
+        ],
+        "type": "object",
+        "properties": {
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ConceptPage": {
         "required": [
           "items",
@@ -711,6 +800,28 @@
           },
           "kind": {
             "$ref": "#/components/schemas/LabelKind"
+          }
+        }
+      },
+      "TermMatchesDto": {
+        "required": [
+          "term",
+          "matches",
+          "exact"
+        ],
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConceptMatchDto"
+            }
+          },
+          "exact": {
+            "type": "boolean"
           }
         }
       },

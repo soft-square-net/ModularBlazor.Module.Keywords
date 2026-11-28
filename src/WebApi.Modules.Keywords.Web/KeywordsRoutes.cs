@@ -17,6 +17,7 @@ public sealed class KeywordsRoutes : ICarterModule
 
         Concepts.List.Map(concepts);
         Concepts.Lookup.Map(concepts);
+        Concepts.Match.Map(concepts);
         Concepts.Types.Map(concepts);
         Concepts.Get.Map(concepts);
         Concepts.JsonLd.Map(concepts);

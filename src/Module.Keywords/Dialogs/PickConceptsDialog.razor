@@ -4,8 +4,13 @@
 @*
   Dialog "Module.Keywords/pick-concepts" (see KeywordsDialogs.PickConcepts): search the tenant's concepts in any
   language and choose one or more; a name that is not there yet can be added on the spot (keywords.manage).
-    parameters  { multiple?: bool, selected?: [ids], type?: string, language?: string, exclude?: [ids] }
+    parameters  { multiple?: bool, selected?: [ids], type?: string, language?: string, exclude?: [ids],
+                  suggestions?: [names] }
     result      { ids: [...], concepts: [{ id, name, type, slug }] }
+  suggestions: names the caller proposes (an AI's keywords, words of the text), shown as chips above the results.
+  Clicking one searches for it and also matches it (POST /concepts/match: Arabic ta marbuta and a leading al- ignored
+  too), so its concepts come first; when nothing matches, "Add as a new concept" is offered for it as for any search.
+  The dialog never chooses for the caller: a suggestion is only a search.
   Shown on other modules' pages too (the DynamicFields editor, Taxonomies), so its styles are kw- classes only.
 *@
 
@@ -25,6 +30,20 @@
       </div>
     }
   </form>
+
+  @if (_suggestions.Count > 0)
+  {
+    <div class="kw-chips kw-picker-suggestions" role="group" aria-label="@L["Suggested names"]">
+      <span class="mud-typography mud-typography-caption mn-muted">@L["Suggested:"]</span>
+      @foreach (var name in _suggestions)
+      {
+        var n = name;
+        var on = string.Equals(_query.Trim(), n, StringComparison.Ordinal);
+        <button type="button" class="mn-chip kw-chip kw-suggestion @(on ? "kw-on" : "")" aria-pressed="@(on ? "true" : "false")"
+                title="@L["Search for \"{0}\"", n]" @onclick="() => SuggestAsync(n)">@n</button>
+      }
+    </div>
+  }
 
   @if (_multiple && _selected.Count > 0)
   {
@@ -95,7 +114,10 @@
   [CascadingParameter] public IDialogReference Dialog { get; set; } = default!;
 
   /// <summary>The caller's parameters (web JSON).</summary>
-  private sealed record Parameters(bool? Multiple, List<string>? Selected, string? Type, string? Language, List<string>? Exclude);
+  private sealed record Parameters(bool? Multiple, List<string>? Selected, string? Type, string? Language, List<string>? Exclude,
+    List<string>? Suggestions);
+
+  private const int MaxSuggestions = 20; // what one POST /concepts/match takes
 
   private const int PageSize = 20;
 
@@ -103,6 +125,7 @@
   private string? _fixedType;
   private string? _language;
   private HashSet<int> _exclude = [];
+  private List<string> _suggestions = [];
   private IReadOnlyList<ConceptType> _types = [];
   private List<ConceptSummaryDto> _results = [];
   private readonly List<ConceptSummaryDto> _selected = [];
@@ -121,6 +144,8 @@
     _fixedType = string.IsNullOrWhiteSpace(parameters?.Type) ? null : parameters.Type.Trim();
     _language = string.IsNullOrWhiteSpace(parameters?.Language) ? null : parameters.Language.Trim();
     _exclude = [.. (parameters?.Exclude ?? []).Select(Number).Where(n => n > 0)];
+    _suggestions = [.. (parameters?.Suggestions ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim())
+      .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxSuggestions)];
     _newLanguage = _language ?? "en";
     _newType = _fixedType ?? "Thing";
 
@@ -140,12 +165,34 @@
     var number = ++_searchNumber;
     var query = _query.Trim();
     var type = _fixedType ?? (_type.Length > 0 ? _type : null);
+    var suggested = query.Length > 0 && _suggestions.Contains(query, StringComparer.Ordinal);
     ConceptPage? page = null;
-    await RunAsync(async () => page = await Api.ListConceptsAsync(1, PageSize, query.Length > 0 ? query : null, type, _language, false), toast: false);
+    IReadOnlyList<ConceptSummaryDto> matched = [];
+    await RunAsync(async () =>
+    {
+      page = await Api.ListConceptsAsync(1, PageSize, query.Length > 0 ? query : null, type, _language, false);
+      if (suggested) matched = await MatchedAsync(query, type);
+    }, toast: false);
     if (number != _searchNumber || page is null) return; // a newer search is on its way
-    _results = [.. page.Items.Where(c => !_exclude.Contains(c.Id))];
+    var found = page.Items.Select(c => c.Id).ToHashSet();
+    _results = [.. matched.Where(c => !found.Contains(c.Id)).Concat(page.Items).Where(c => !_exclude.Contains(c.Id))];
     _more = Math.Max(0, page.Total - page.Items.Count);
     StateHasChanged(); // the first search runs from OnAfterRenderAsync, which does not re-render by itself
+  }
+
+  /// <summary>A suggestion clicked: search for it (again, if it is the query already).</summary>
+  private Task SuggestAsync(string name)
+  {
+    _query = name;
+    return SearchAsync();
+  }
+
+  /// <summary>The concepts POST /concepts/match finds for a suggested name, best first, as the list shows them.</summary>
+  private async Task<IReadOnlyList<ConceptSummaryDto>> MatchedAsync(string name, string? type)
+  {
+    var terms = await Api.MatchConceptsAsync(new ConceptMatchRequest { Terms = [name], Language = _language, Type = type });
+    var ids = terms.SelectMany(t => t.Matches).Select(m => m.Id).Distinct().ToList();
+    return ids.Count == 0 ? [] : await Api.LookupConceptsAsync(ids, _language);
   }
 
   private void Toggle(ConceptSummaryDto concept)

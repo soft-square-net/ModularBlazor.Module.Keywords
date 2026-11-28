@@ -40,6 +40,7 @@ never shown). Search ignores case, accents, Arabic harakat, tatweel and alef/ya 
 | --- | --- | --- |
 | `GET /concepts?page=&pageSize=&search=&type=&language=&includeRetired=` | `keywords.read` | One page by name; `type` is an exact schema.org type, `language` picks the names shown |
 | `GET /concepts/lookup?ids=1&ids=2&language=` | `keywords.read` | The concepts with these ids, in the order asked (retired too) |
+| `POST /concepts/match` `{ terms, language?, type? }` | `keywords.read` | Names to concepts: per term `{ term, matches: [{ id, name, type, slug, score }], exact }`, see below |
 | `GET /concepts/types` | `keywords.read` | The schema.org types, each with its parent |
 | `GET /concepts/{id}` | `keywords.read` | The concept with every label |
 | `GET /concepts/{id}/jsonld?language=` | `keywords.read` | `{ id, name, jsonLd }`: the concept as schema.org JSON-LD, ready for a page's `about` or `mentions` |
@@ -50,6 +51,26 @@ never shown). Search ignores case, accents, Arabic harakat, tatweel and alef/ya 
 Every call needs a signed-in caller in a tenant (`X-Tenant` header or the token's tenant). The setting
 `Keywords:MaxPageSize` (default 100) caps the page size and the ids per lookup; change it on the Host Modules page.
 
+### Matching names to concepts
+
+`POST /concepts/match` is for a module that holds keyword *names* (an AI's suggestions, words of a text) and wants
+the concepts behind them; it never creates one. The body is `{ terms: ["القاهره", "Messi"], language: "ar",
+type?: "City" }`, at most 20 terms (blank and repeated ones are dropped), each at most 200 characters. The answer
+has one entry per term, in the order asked:
+
+```
+[{ term: "القاهره", exact: true, matches: [{ id: 3, name: "القاهرة", type: "City", slug: "cairo", score: 1 },
+                                           { id: 9, name: "جامعة القاهرة", type: "Organization", slug: "cairo-university", score: 0.7 }] }]
+```
+
+A term is compared with every name of the active concepts, in any language, hidden ones too, after folding case,
+accents, Arabic diacritics, tatweel, alef forms and alef maqsura (as search does) and also ta marbuta (ة as ه) and a
+leading `ال` on each word, so `قاهره` finds `القاهرة`. Up to 5 matches per term, best first: `score` is 1 for the
+same name (0.9 for a hidden one), 0.8 when one name starts with the other's words, 0.7 when it contains them, 0.5
+for a part of a word. `exact` is true when a shown (preferred or alternate) name is the term. `language` names the
+matches, `type` keeps one schema.org type. Offer the matches to a person, through the pick-concepts dialog's
+`suggestions`: the module never tags content with a guess.
+
 In the Blazor client, the **Keywords** menu entry opens the concept list (`/keywords`: search, type filter, retired
 too) and the editor (`/keywords/concept?id=`: labels per language, links, related concepts, the JSON-LD).
 
@@ -59,12 +80,15 @@ Other client modules open it with `IModuleDialogs.ShowAsync("Module.Keywords/pic
 `IsAvailable` first: the module may not be installed). Ids are strings.
 
 ```
-parameters  { multiple?: bool, selected?: ["1"], type?: "Place", language?: "ar", exclude?: ["7"] }
+parameters  { multiple?: bool, selected?: ["1"], type?: "Place", language?: "ar", exclude?: ["7"],
+              suggestions?: ["القاهرة", "Messi"] }
 result      { ids: ["1", "4"], concepts: [{ id, name, type, slug }] }   in the order chosen; nothing when cancelled
 ```
 
 It searches in any language, shows each concept's other names, and lets a `keywords.manage` user add a missing name as
-a new concept on the spot. Keep the id and the name you got: the name is a snapshot for display, the id is the link.
+a new concept on the spot. `suggestions` (at most 20 names, an AI's keywords for instance) are shown as chips above
+the results: clicking one searches for that name and matches it (`POST /concepts/match`), its concepts first; when
+nothing matches, it offers to add the name as a new concept. The user still chooses: nothing is picked for them. Keep the id and the name you got: the name is a snapshot for display, the id is the link.
 
 ## Building
 

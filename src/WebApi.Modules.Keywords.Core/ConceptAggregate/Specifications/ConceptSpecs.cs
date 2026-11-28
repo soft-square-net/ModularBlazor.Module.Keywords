@@ -57,3 +57,20 @@ public sealed class ConceptsPageSpec : Specification<Concept>
             .AsNoTracking();
     }
 }
+
+/// <summary>
+/// The active concepts with a label whose search key contains <paramref name="stem"/> (<see cref="MatchKey.Stem"/>),
+/// with their labels, untracked, at most <paramref name="take"/>: the candidates a name is matched against.
+/// </summary>
+public sealed class ConceptsContainingSpec : Specification<Concept>
+{
+    public ConceptsContainingSpec(string stem, string? type, int take)
+    {
+        Query.Where(c => c.Status == ConceptStatus.Active && c.Labels.Any(l => l.SearchKey.Contains(stem)));
+        if (!string.IsNullOrWhiteSpace(type)) Query.Where(c => c.Type == type);
+        Query.OrderBy(c => c.Name).ThenBy(c => c.Id)
+            .Include(c => c.Labels)
+            .Take(take)
+            .AsNoTracking();
+    }
+}
